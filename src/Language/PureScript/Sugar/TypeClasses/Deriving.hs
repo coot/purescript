@@ -509,6 +509,8 @@ deriveGenericRep mn syns ds tyConNm tyConArgs repTy = do
     compN n f = f . compN (n - 1) f
 
     makeInst
+      -- single data constructor (with its name and list of types of its
+      -- arguments)
       :: (ProperName 'ConstructorName, [Type])
       -> m (Type, CaseAlternative, CaseAlternative)
     makeInst (ctorName, args) = do
@@ -524,12 +526,13 @@ deriveGenericRep mn syns ds tyConNm tyConArgs repTy = do
                )
 
     makeProduct
+      -- list of types that comes from a single data constructor
       :: [Type]
       -> m (Type, Binder, [Expr], [Binder], Expr)
     makeProduct [] =
       pure (noArgs, NullBinder, [], [], noArgs')
     makeProduct args = do
-      (tys, bs1, es1, bs2, es2) <- unzip5 <$> traverse makeArg args
+      (tys, bs1, es1, bs2, es2) <- unzip5 <$> traverse (makeArg False) args
       pure ( foldr1 (\f -> TypeApp (TypeApp (TypeConstructor productName) f)) tys
            , foldr1 (\b1 b2 -> ConstructorBinder productName [b1, b2]) bs1
            , es1
@@ -537,11 +540,12 @@ deriveGenericRep mn syns ds tyConNm tyConArgs repTy = do
            , foldr1 (\e1 -> App (App (Constructor productName) e1)) es2
            )
 
-    makeArg :: Type -> m (Type, Binder, Expr, Binder, Expr)
-    makeArg arg | Just rec <- objectType arg
-                , Just fields <- decomposeRec rec = do
-      fieldNames <- traverse freshIdent (map (runIdent . labelToIdent . fst) fields)
-      case fieldNames of
+    -- single argument of a data constructor (gets its type)
+    makeArg :: Bool -> Type -> m (Type, Binder, Expr, Binder, Expr)
+    makeArg _ arg | Just rec <- objectType arg
+                      , Just fields <- decomposeRec rec = do
+      fieldArgs <- traverse (makeArg True . snd) fields
+      case fieldArgs of
         [] ->
           pure ( TypeApp (TypeConstructor record) noArgs
                , ConstructorBinder record [ NullBinder ]
@@ -552,21 +556,29 @@ deriveGenericRep mn syns ds tyConNm tyConArgs repTy = do
         _ ->
           pure ( TypeApp (TypeConstructor record)
                    (foldr1 (\f -> TypeApp (TypeApp (TypeConstructor productName) f))
-                     (map (\((Label name), ty) ->
-                       TypeApp (TypeApp (TypeConstructor field) (TypeLevelString name)) ty) fields))
+                     (map (\(((Label name), _), (ty, _, _, _, _)) ->
+                       TypeApp (TypeApp (TypeConstructor field) (TypeLevelString name)) ty) $ zip fields fieldArgs))
                , ConstructorBinder record
                    [ foldr1 (\b1 b2 -> ConstructorBinder productName [b1, b2])
-                       (map (\ident -> ConstructorBinder field [VarBinder ident]) fieldNames)
+                       (map (\(_, b, _, _, _) -> ConstructorBinder field [b]) fieldArgs)
                    ]
                , Literal . ObjectLiteral $
-                    zipWith (\((Label name), _) ident -> (name, Var (Qualified Nothing ident))) fields fieldNames
+                    zipWith (\((Label name), _) (_, _, e, _, _) -> (name, e)) fields fieldArgs
                , LiteralBinder . ObjectLiteral $
-                     zipWith (\((Label name), _) ident -> (name, VarBinder ident)) fields fieldNames
+                     zipWith (\((Label name), _) (_, _, _, b, _) -> (name, b)) fields fieldArgs
                , record' $
                    foldr1 (\e1 -> App (App (Constructor productName) e1))
-                     (map (field' . Var . Qualified Nothing) fieldNames)
+                     (map (\(_, _, _, _, e) -> field' e) fieldArgs)
                )
-    makeArg arg = do
+    makeArg True arg = do
+      argName <- freshIdent "arg"
+      pure ( arg
+           , VarBinder argName
+           , Var (Qualified Nothing argName)
+           , VarBinder argName
+           , Var (Qualified Nothing argName)
+           )
+    makeArg False arg = do
       argName <- freshIdent "arg"
       pure ( TypeApp (TypeConstructor argument) arg
            , ConstructorBinder argument [ VarBinder argName ]
