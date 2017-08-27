@@ -51,9 +51,10 @@ metaToJSON (IsTypeClassConstructorApp n)
 metaToJSON IsForeign              = object [ T.pack "metaType"  .= "IsForeign" ]
 
 annToJSON :: Ann -> Value
-annToJSON (ss, _, _, m) = object [ T.pack "sourceSpan"  .= toJSON ss
-                                 , T.pack "meta"        .= maybe Null metaToJSON m
-                                 ]
+annToJSON (ss, _, ty, m) = object [ T.pack "sourceSpan"  .= toJSON ss
+                                  , T.pack "type"        .= maybe Null toJSON ty
+                                  , T.pack "meta"        .= maybe Null metaToJSON m
+                                  ]
 
 literalToJSON :: (a -> Value) -> Literal a -> Value
 literalToJSON _ (NumericLiteral (Left n))

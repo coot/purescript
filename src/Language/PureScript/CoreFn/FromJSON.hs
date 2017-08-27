@@ -72,8 +72,9 @@ annFromJSON = withObject "Ann" annFromObj
   where
   annFromObj o = do
     ss <- o .: "sourceSpan"
+    mty <- o .: "type"
     mm <- o .: "meta" >>= metaFromJSON
-    return (ss, [], Nothing, mm)
+    return (ss, [], mty, mm)
 
 literalFromJSON :: (Value -> Parser a) -> Value -> Parser (Literal a)
 literalFromJSON t = withObject "Literal" literalFromObj
