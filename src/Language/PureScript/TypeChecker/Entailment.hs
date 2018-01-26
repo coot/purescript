@@ -360,7 +360,7 @@ entails SolverOptions{..} constraint context hints =
             mkDictionary (NamedInstance n) args = return $ foldl App (Var n) (fold args)
             mkDictionary UnionInstance (Just [e]) =
               -- We need the subgoal dictionary to appear in the term somewhere
-              return $ App (Abs (VarBinder (Ident C.__unused)) valUndefined) e
+              return $ App (Abs (VarBinder UnusedIdent) valUndefined) e
             mkDictionary UnionInstance _ = return valUndefined
             mkDictionary ConsInstance _ = return valUndefined
             mkDictionary RowToListInstance _ = return valUndefined
@@ -371,7 +371,7 @@ entails SolverOptions{..} constraint context hints =
               -- So pass an empty placeholder (undefined) instead.
               return valUndefined
             mkDictionary (IsSymbolInstance sym) _ =
-              let fields = [ ("reflectSymbol", Abs (VarBinder (Ident C.__unused)) (Literal (StringLiteral sym))) ] in
+              let fields = [ ("reflectSymbol", Abs (VarBinder UnusedIdent) (Literal (StringLiteral sym))) ] in
               return $ TypeClassDictionaryConstructorApp C.IsSymbol (Literal (ObjectLiteral fields))
             mkDictionary CompareSymbolInstance _ =
               return $ TypeClassDictionaryConstructorApp C.CompareSymbol (Literal (ObjectLiteral []))
@@ -498,7 +498,6 @@ matches deps TypeClassDictionaryInScope{..} tys =
     typeHeadsAreEqual t                    (TypeVar v)                     = (Match (), M.singleton v [t])
     typeHeadsAreEqual (TypeConstructor c1) (TypeConstructor c2) | c1 == c2 = (Match (), M.empty)
     typeHeadsAreEqual (TypeLevelString s1) (TypeLevelString s2) | s1 == s2 = (Match (), M.empty)
-    typeHeadsAreEqual (ProxyType t1)       (ProxyType t2)                  = typeHeadsAreEqual t1 t2
     typeHeadsAreEqual (TypeApp h1 t1)      (TypeApp h2 t2)                 =
       both (typeHeadsAreEqual h1 h2) (typeHeadsAreEqual t1 t2)
     typeHeadsAreEqual REmpty REmpty = (Match (), M.empty)
@@ -543,7 +542,6 @@ matches deps TypeClassDictionaryInScope{..} tys =
       typesAreEqual (TypeLevelString s1) (TypeLevelString s2) | s1 == s2 = Match ()
       typesAreEqual (TypeConstructor c1) (TypeConstructor c2) | c1 == c2 = Match ()
       typesAreEqual (TypeApp h1 t1)      (TypeApp h2 t2)      = typesAreEqual h1 h2 <> typesAreEqual t1 t2
-      typesAreEqual (ProxyType t1)       (ProxyType t2)       = typesAreEqual t1 t2
       typesAreEqual REmpty               REmpty               = Match ()
       typesAreEqual r1                   r2                   | isRCons r1 || isRCons r2 =
           let (common, rest) = alignRowsWith typesAreEqual r1 r2

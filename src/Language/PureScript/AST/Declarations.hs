@@ -769,9 +769,6 @@ data Expr
   --
   | Do [DoNotationElement]
   -- |
-  -- A proxy value
-  --
-  | Proxy Type
   -- An ado-notation block
   --
   | Ado [DoNotationElement] Expr
@@ -803,7 +800,7 @@ data Expr
   --
   | AnonymousArgument
   -- |
-  -- A typed hole that will be turned into a hint/error duing typechecking
+  -- A typed hole that will be turned into a hint/error during typechecking
   --
   | Hole Text
   -- |
